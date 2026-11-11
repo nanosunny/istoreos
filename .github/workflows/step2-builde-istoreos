@@ -1,0 +1,128 @@
+name: Package Firmware from ImageBuilder (25.12)  
+  
+on:  
+  workflow_dispatch:  
+    inputs:  
+      profile:  
+        description: '选择要打包的设备（TARGET_DEVICES 名）'  
+        required: true  
+        type: choice  
+        default: 'easepi_ars4'  
+        options:  
+          - armsom_sige1  
+          - armsom_sige7-v1  
+          - fastrhino_r66s  
+          - fastrhino_r68s  
+          - fastrhino_r6xs  
+          - hinlink_opc-h6xk  
+          - hinlink_hnas  
+          - hinlink_h88k  
+          - easepi_ars4  
+          - easepi_r1  
+          - easepi_r1-lite  
+          - easepi_r2  
+          - friendlyelec_nanopi-r3s  
+          - friendlyarm_nanopi-r5s  
+          - friendlyarm_nanopi-r6s  
+          - firefly_station-p2  
+          - firefly_station-m2  
+          - lyt_t68m  
+          - lyt_t88m  
+          - yijiahe_jm10  
+          - cyber3588_aib  
+          - hlink_h28k  
+          - inspur_ihec301  
+          - jsy_h1  
+          - yyy_h1  
+          - idiskk_h1  
+          - dg_nas-lite  
+          - dg_tn3568  
+          - ezpro_mrkaio-m68s  
+          - ezpro_mrkaio-m68s-plus  
+          - ynn_ynnnas  
+          - jp_tvbox  
+          - panther_x2  
+          - le_hes30  
+          - klan_nas101  
+          - klan_nas102  
+          - linkfog_ala2  
+          - mangopi_m28k  
+          - radxa_e20c  
+          - radxa_e52c  
+          - radxa_e54c  
+          - roc_k40pro  
+          - roc_k50s  
+          - nlnet_xgp  
+      extra_packages:  
+        description: '额外软件包（空格分隔，-包名 表示移除）'  
+        required: false  
+        default: ''  
+      rootfs_partsize:  
+        description: 'rootfs 分区大小 MB（留空用默认）'  
+        required: false  
+        default: ''  
+      run_id:  
+        description: '指定 build workflow 的 run ID（留空取最近一次成功构建）'  
+        required: false  
+        default: ''  
+  
+env:  
+  IB_ARTIFACT: imagebuilder-25.12-rockchip-rk35xx  
+  
+jobs:  
+  package:  
+    runs-on: ubuntu-24.04  
+    steps:  
+      - name: 安装依赖  
+        run: |  
+          sudo apt-get update  
+          sudo apt-get install -y build-essential gawk gettext git \  
+            libncurses-dev libssl-dev python3 rsync unzip zlib1g-dev \  
+            file wget qemu-utils  
+  
+      - name: 解析最近一次成功的 build run  
+        id: resolve  
+        env:  
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+        run: |  
+          if [ -n "${{ inputs.run_id }}" ]; then  
+            echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"  
+          else  
+            RID=$(gh run list --workflow "Build iStoreOS + ImageBuilder (25.12)" \  
+                  --status success --limit 1 --json databaseId -q '.[0].databaseId')  
+            [ -n "$RID" ] || { echo "找不到已完成的构建，请先运行 build workflow"; exit 1; }  
+            echo "run_id=$RID" >> "$GITHUB_OUTPUT"  
+          fi  
+  
+      - name: 下载 ImageBuilder artifact  
+        uses: actions/download-artifact@v4  
+        with:  
+          name: ${{ env.IB_ARTIFACT }}  
+          path: ib-tar  
+          github-token: ${{ secrets.GITHUB_TOKEN }}  
+          run-id: ${{ steps.resolve.outputs.run_id }}  
+  
+      - name: 解压 ImageBuilder  
+        run: |  
+          IB=$(ls ib-tar/*imagebuilder*.tar.xz | head -n1)  
+          mkdir -p ib && tar -xJf "$IB" -C ib --strip-components=1  
+  
+      - name: 列出可用 profile（校验）  
+        run: make -C ib info  
+  
+      - name: 打包固件  
+        run: |  
+          cd ib  
+          make image PROFILE="${{ inputs.profile }}" \  
+            PACKAGES="${{ inputs.extra_packages }}" \  
+            BIN_DIR="$(pwd)/out" \  
+            ${ROOTFS:+ROOTFS_PARTSIZE="${{ inputs.rootfs_partsize }}"}  
+        env:  
+          ROOTFS: ${{ inputs.rootfs_partsize }}  
+  
+      - name: 上传固件  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: firmware-${{ inputs.profile }}  
+          path: ib/out/  
+          retention-days: 14
