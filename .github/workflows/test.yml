@@ -40,15 +40,15 @@ jobs:
   
       - name: 生成 .config（目标 + 设备 + ImageBuilder）  
         run: |  
-          cat > .config <<EOF  
-          CONFIG_TARGET_${TARGET}=y  
-          CONFIG_TARGET_${TARGET}_${SUBTARGET}=y  
-          CONFIG_TARGET_${TARGET}_${SUBTARGET}_DEVICE_${{ inputs.profile || 'easepi_ars4' }}=y  
-          CONFIG_IB=y  
-          CONFIG_SDK=n  
-          CONFIG_MAKE_TOOLCHAIN=n  
-          EOF  
-          make defconfig  
+          {  
+            echo "CONFIG_TARGET_${TARGET}=y"  
+            echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}=y"  
+            echo "CONFIG_TARGET_${TARGET}_${SUBTARGET}_DEVICE_${{ inputs.profile || 'easepi_ars4' }}=y"  
+            echo "CONFIG_IB=y"  
+            echo "CONFIG_SDK=n"  
+            echo "CONFIG_MAKE_TOOLCHAIN=n"  
+          } > .config  
+          make defconfig 
   
       - name: 下载源码包  
         run: make download -j$(nproc)  
