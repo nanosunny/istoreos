@@ -1,0 +1,72 @@
+name: Build iStoreOS + ImageBuilder (25.12)    
+on:  
+  workflow_dispatch:  
+    inputs:  
+      profile:  
+        description: '设备 PROFILE（用于验证编译，如 easepi_ars4）'  
+        required: true  
+        default: 'easepi_ars4'  
+  push:  
+    branches: [ istoreos-25.12 ]  
+  
+permissions:  
+  contents: write   # 上传 Release 需要  
+  
+env:  
+  TARGET: rockchip  
+  SUBTARGET: rk35xx  
+  BRANCH: istoreos-25.12  
+  RELEASE_TAG: imagebuilder-rk35xx   # 固定 tag，滚动更新  
+  
+jobs:  
+  build:  
+    runs-on: ubuntu-24.04  
+    steps:  
+      - name: 安装编译依赖  
+        run: |  
+          sudo apt-get update  
+          sudo apt-get install -y build-essential clang flex bison g++ gawk \  
+            gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \  
+            python3 python3-dev python3-setuptools rsync unzip zlib1g-dev \  
+            file wget swig qemu-utils  
+  
+      - name: 拉取 25.12 分支源码  
+        uses: actions/checkout@v4  
+        with:  
+          ref: ${{ env.BRANCH }}  
+          fetch-depth: 0  
+  
+      - name: 更新并安装 feeds  
+        run: |  
+          ./scripts/feeds update -a  
+          ./scripts/feeds install -a  
+  
+      - name: 生成 .config（目标 + 设备 + ImageBuilder）  
+        run: |  
+          cat > .config <<EOF  
+          CONFIG_TARGET_${TARGET}=y  
+          CONFIG_TARGET_${TARGET}_${SUBTARGET}=y  
+          CONFIG_TARGET_${TARGET}_${SUBTARGET}_DEVICE_${{ inputs.profile || 'easepi_ars4' }}=y  
+          CONFIG_IB=y  
+          CONFIG_SDK=n  
+          CONFIG_MAKE_TOOLCHAIN=n  
+          EOF  
+          make defconfig  
+  
+      - name: 下载源码包  
+        run: make download -j$(nproc)  
+  
+      - name: 编译固件与 ImageBuilder  
+        run: make -j$(nproc) V=s  
+  
+      - name: 上传 ImageBuilder 到 Release  
+        env:  
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+        run: |  
+          cd bin/targets/${TARGET}/${SUBTARGET}  
+          # 创建 release（已存在则忽略错误），再覆盖上传  
+          gh release create "${RELEASE_TAG}" \  
+            --title "ImageBuilder ${TARGET}/${SUBTARGET}" \  
+            --notes "iStoreOS 25.12 ImageBuilder，由 CI 自动生成" \  
+            --latest=false 2>/dev/null || true  
+          gh release upload "${RELEASE_TAG}" *imagebuilder*.tar.xz --clobber
