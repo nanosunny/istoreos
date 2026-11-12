@@ -5,9 +5,7 @@ on:
       profile:  
         description: '设备 PROFILE（用于验证编译，如 easepi_ars4）'  
         required: true  
-        default: 'easepi_ars4'  
-  push:  
-    branches: [ istoreos-25.12 ]  
+        default: 'easepi_ars4' 
   
 permissions:  
   contents: write   # 上传 Release 需要  
