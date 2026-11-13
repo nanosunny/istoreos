@@ -7,6 +7,9 @@ on:
         required: true  
         default: 'easepi_ars4'
 
+  push:  
+    branches: [ istoreos-25.12 ]  
+    
 permissions:  
   contents: write   # 上传 Release 需要  
   
