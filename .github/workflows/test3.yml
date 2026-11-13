@@ -58,19 +58,9 @@ jobs:
       - name: 编译固件与 ImageBuilder  
         run: make -j$(nproc) V=s  
         
-      - name: 诊断产物  
+      - name: 定位 ImageBuilder 产物  
+        id: ib  
         run: |  
-          ls -la bin/ 2>/dev/null || echo "bin/ 不存在"  
-          find bin -maxdepth 3 -type d 2>/dev/null | head -30  
-          find bin -type f -name "*imagebuilder*" 2>/dev/null | head -20  
-          grep -E "CONFIG_IB|CONFIG_TARGET_rockchip.*DEVICE" .config || true  
-  
-      - name: 上传 ImageBuilder 到 Release  
-        env:  
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-        run: |  
-          set -x  
-          shopt -s nullglob  
           IB_FILE=$(find bin/targets -type f -name "*imagebuilder*" | head -n1)  
           if [ -z "$IB_FILE" ]; then  
             echo "未找到 imagebuilder 产物"  
@@ -78,5 +68,12 @@ jobs:
             exit 1  
           fi  
           echo "找到: $IB_FILE"  
-          gh release create "${RELEASE_TAG}" --title "ImageBuilder rockchip armv8" --notes "iStoreOS 25.12 ImageBuilder" --latest=false || true  
-          gh release upload "${RELEASE_TAG}" "$IB_FILE" --clobber
+          echo "file=$IB_FILE" >> "$GITHUB_OUTPUT"  
+  
+      - name: 🚀 上传到 Release  
+        uses: softprops/action-gh-release@v3  
+        with:  
+          tag_name: ${{ env.RELEASE_TAG }}  
+          name: ImageBuilder rockchip armv8  
+          body: iStoreOS 25.12 ImageBuilder，由 CI 自动生成  
+          files: ${{ steps.ib.outputs.file }}
