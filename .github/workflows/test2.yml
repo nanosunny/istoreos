@@ -55,20 +55,20 @@ jobs:
       - name: 编译固件与 ImageBuilder  
         run: make -j$(nproc) V=s  
         
-      - name: 查看产物目录（调试）  
+      - name: 诊断产物  
         run: |  
-          find bin/targets -maxdepth 2 -type d  
-          find bin/targets -name '*imagebuilder*' -o -name '*.img.gz' | head -50  
+          grep -E 'CONFIG_IB|CONFIG_TARGET_rockchip.*DEVICE' .config || true  
+          find bin/targets -maxdepth 2 -type d || true  
+          find bin -name '*imagebuilder*' -o -name '*sdk*' | head -20 || true  
   
       - name: 上传 ImageBuilder 到 Release  
         env:  
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
         run: |  
-          IB_DIR=$(dirname "$(find bin/targets -name '*imagebuilder*.tar.xz' | head -n1)")  
-          [ -n "$IB_DIR" ] && [ "$IB_DIR" != "." ] || { echo "未找到 imagebuilder 产物"; exit 1; }  
-          cd "$IB_DIR"  
+          IB_FILE=$(find bin/targets -name '*imagebuilder*' \( -name '*.tar.*' -o -name '*.tar' \) | head -n1)  
+          [ -n "$IB_FILE" ] || { echo "未找到 imagebuilder 产物"; exit 1; }  
           gh release create "${RELEASE_TAG}" \  
             --title "ImageBuilder ${TARGET}/${SUBTARGET}" \  
             --notes "iStoreOS 25.12 ImageBuilder，由 CI 自动生成" \  
             --latest=false 2>/dev/null || true  
-          gh release upload "${RELEASE_TAG}" *imagebuilder*.tar.xz --clobber
+          gh release upload "${RELEASE_TAG}" "$IB_FILE" --clobber
