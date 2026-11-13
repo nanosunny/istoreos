@@ -60,16 +60,26 @@ jobs:
         
       - name: 诊断产物  
         run: |  
-          grep -E 'CONFIG_IB|CONFIG_TARGET_rockchip.*DEVICE' .config || true  
-          find bin/targets -maxdepth 2 -type d || true  
-          find bin -name '*imagebuilder*' -o -name '*sdk*' | head -20 || true  
+          ls -la bin/ 2>/dev/null || echo "bin/ 不存在"  
+          find bin -maxdepth 3 -type d 2>/dev/null | head -30  
+          find bin -type f -name "*imagebuilder*" 2>/dev/null | head -20  
+          grep -E "CONFIG_IB|CONFIG_TARGET_rockchip.*DEVICE" .config || true  
   
       - name: 上传 ImageBuilder 到 Release  
         env:  
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
         run: |  
-          IB_FILE=$(find bin/targets -name '*imagebuilder*' \( -name '*.tar.*' -o -name '*.tar' \) | head -n1)  
-          [ -n "$IB_FILE" ] || { echo "未找到 imagebuilder 产物"; exit 1; }  
+          if [ ! -d bin/targets ]; then  
+            echo "bin/targets 不存在，编译未产出任何镜像"  
+            exit 1  
+          fi  
+          IB_FILE=$(find bin/targets -type f -name "*imagebuilder*" | head -n1)  
+          if [ -z "$IB_FILE" ]; then  
+            echo "未找到 imagebuilder 产物，实际产物如下："  
+            find bin/targets -type f | head -50  
+            exit 1  
+          fi  
+          echo "找到: $IB_FILE"  
           gh release create "${RELEASE_TAG}" \  
             --title "ImageBuilder ${TARGET}/${SUBTARGET}" \  
             --notes "iStoreOS 25.12 ImageBuilder，由 CI 自动生成" \  
