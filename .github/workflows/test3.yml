@@ -69,10 +69,14 @@ jobs:
         env:  
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
         run: |  
+          set -x  
+          shopt -s nullglob  
           IB_FILE=$(find bin/targets -type f -name "*imagebuilder*" | head -n1)  
           if [ -z "$IB_FILE" ]; then  
-            echo "未找到 imagebuilder 产物"; find bin/targets -type f | head -50; exit 1  
+            echo "未找到 imagebuilder 产物"  
+            find bin/targets -type f | head -50  
+            exit 1  
           fi  
           echo "找到: $IB_FILE"  
-          gh release create "${RELEASE_TAG}" --title "ImageBuilder rockchip/armv8" --notes "iStoreOS 25.12 ImageBuilder" --latest=false 2>/dev/null || true  
+          gh release create "${RELEASE_TAG}" --title "ImageBuilder rockchip armv8" --notes "iStoreOS 25.12 ImageBuilder" --latest=false || true  
           gh release upload "${RELEASE_TAG}" "$IB_FILE" --clobber
